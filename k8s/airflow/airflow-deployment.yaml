@@ -1,0 +1,105 @@
+# Airflow Deployment Configuration
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: financial-timeseries
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-webserver
+  template:
+    metadata:
+      labels:
+        app: airflow-webserver
+    spec:
+      containers:
+      - name: webserver
+        image: apache/airflow:2.7.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "KubernetesExecutor"
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          valueFrom:
+            secretKeyRef:
+              name: airflow-db-credentials
+              key: connection-string
+        - name: AIRFLOW__CORE__FERNET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: airflow-fernet-key
+              key: key
+        command: ["airflow", "webserver"]
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+      - name: scheduler
+        image: apache/airflow:2.7.0
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: "KubernetesExecutor"
+        - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+          valueFrom:
+            secretKeyRef:
+              name: airflow-db-credentials
+              key: connection-string
+        command: ["airflow", "scheduler"]
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver
+  namespace: financial-timeseries
+spec:
+  selector:
+    app: airflow-webserver
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-dags
+  namespace: financial-timeseries
+data:
+  data_quality_dags.py: |
+    # Airflow DAGs will be mounted from PVC or Git sync
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: airflow-db-credentials
+  namespace: financial-timeseries
+type: Opaque
+stringData:
+  connection-string: "postgresql://airflow:airflow@airflow-postgres:5432/airflow"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: airflow-fernet-key
+  namespace: financial-timeseries
+type: Opaque
+stringData:
+  key: "YOUR_FERNET_KEY_HERE"

@@ -1,0 +1,80 @@
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: market-realtime-anomaly-detection
+  namespace: financial-timeseries
+spec:
+  image: financial-timeseries/flink-job:latest
+  flinkVersion: v1.17
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "4"
+    parallelism.default: "4"
+    state.backend: rocksdb
+    state.backend.incremental: "true"
+    state.checkpoints.dir: "s3://checkpoints/flink/"
+    state.savepoints.dir: "s3://checkpoints/flink/savepoints/"
+    execution.checkpointing.interval: "60000"
+    execution.checkpointing.mode: EXACTLY_ONCE
+    execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
+  serviceAccount: flink-service-account
+  job:
+    jarURI: local:///opt/flink/jobs/enhanced_anomaly_detection.py
+    parallelism: 4
+    upgradeMode: stateless
+  podTemplate:
+    spec:
+      containers:
+      - name: flink-main-container
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: TIMESCALEDB_URL
+          value: "jdbc:postgresql://timescaledb:5432/financial_db"
+        - name: TIMESCALEDB_USER
+          valueFrom:
+            secretKeyRef:
+              name: timescaledb-credentials
+              key: username
+        - name: TIMESCALEDB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: timescaledb-credentials
+              key: password
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flink-service-account
+  namespace: financial-timeseries
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: flink-role
+  namespace: financial-timeseries
+rules:
+- apiGroups: [""]
+  resources: ["pods", "configmaps", "services"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: flink-rolebinding
+  namespace: financial-timeseries
+subjects:
+- kind: ServiceAccount
+  name: flink-service-account
+roleRef:
+  kind: Role
+  name: flink-role
+  apiGroup: rbac.authorization.k8s.io

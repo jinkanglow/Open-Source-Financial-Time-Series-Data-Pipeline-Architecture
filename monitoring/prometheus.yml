@@ -1,0 +1,61 @@
+# Prometheus Configuration
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'financial-timeseries'
+    environment: 'production'
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # TimescaleDB metrics (via postgres_exporter)
+  - job_name: 'timescaledb'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    metrics_path: '/metrics'
+
+  # Flink metrics
+  - job_name: 'flink'
+    static_configs:
+      - targets: ['flink-jobmanager:8081']
+    metrics_path: '/metrics'
+
+  # Spark metrics
+  - job_name: 'spark'
+    static_configs:
+      - targets: ['spark-master:8080']
+    metrics_path: '/metrics'
+
+  # Kafka metrics (via JMX exporter)
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+    metrics_path: '/metrics'
+
+  # Application metrics (via OpenTelemetry)
+  - job_name: 'otel'
+    static_configs:
+      - targets: ['otel-collector:8888']
+    metrics_path: '/metrics'
+
+  # Feature freshness metrics
+  - job_name: 'feature-freshness'
+    static_configs:
+      - targets: ['feature-monitor:9090']
+    metrics_path: '/metrics'
+
+# Alerting rules
+rule_files:
+  - 'prometheus-alerts.yml'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - 'alertmanager:9093'

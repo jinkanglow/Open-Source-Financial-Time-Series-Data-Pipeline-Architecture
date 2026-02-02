@@ -1,0 +1,93 @@
+{
+  "type": "record",
+  "name": "MarketData",
+  "namespace": "com.financial.timeseries",
+  "version": "1",
+  "fields": [
+    {
+      "name": "time",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event timestamp in milliseconds"
+    },
+    {
+      "name": "symbol",
+      "type": "string",
+      "doc": "Stock symbol (e.g., AAPL, MSFT)"
+    },
+    {
+      "name": "price",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 20,
+        "scale": 8
+      },
+      "doc": "Trade price"
+    },
+    {
+      "name": "volume",
+      "type": {
+        "type": "bytes",
+        "logicalType": "decimal",
+        "precision": 20,
+        "scale": 2
+      },
+      "doc": "Trade volume"
+    },
+    {
+      "name": "trade_id",
+      "type": "string",
+      "doc": "Unique trade identifier"
+    },
+    {
+      "name": "side",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "TradeSide",
+          "symbols": ["buy", "sell"]
+        }
+      ],
+      "default": null,
+      "doc": "Trade side: buy or sell"
+    },
+    {
+      "name": "bid",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 20,
+          "scale": 8
+        }
+      ],
+      "default": null,
+      "doc": "Bid price at time of trade"
+    },
+    {
+      "name": "ask",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 20,
+          "scale": 8
+        }
+      ],
+      "default": null,
+      "doc": "Ask price at time of trade"
+    },
+    {
+      "name": "source",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Data source identifier"
+    }
+  ]
+}

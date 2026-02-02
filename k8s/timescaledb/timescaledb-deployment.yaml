@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: timescaledb
+  namespace: financial-timeseries
+spec:
+  serviceName: timescaledb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: timescaledb
+  template:
+    metadata:
+      labels:
+        app: timescaledb
+    spec:
+      containers:
+      - name: timescaledb
+        image: timescale/timescaledb:latest-pg14
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: timescaledb-credentials
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: timescaledb-credentials
+              key: password
+        - name: POSTGRES_DB
+          value: "financial_db"
+        volumeMounts:
+        - name: timescaledb-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            cpu: "2"
+            memory: "8Gi"
+          limits:
+            cpu: "4"
+            memory: "16Gi"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - user
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - user
+          initialDelaySeconds: 10
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: timescaledb-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: timescaledb
+  namespace: financial-timeseries
+spec:
+  selector:
+    app: timescaledb
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: timescaledb-credentials
+  namespace: financial-timeseries
+type: Opaque
+stringData:
+  username: "user"
+  password: "password"
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: timescaledb-init
+  namespace: financial-timeseries
+spec:
+  template:
+    spec:
+      containers:
+      - name: init
+        image: timescale/timescaledb:latest-pg14
+        command:
+        - /bin/bash
+        - -c
+        - |
+          psql -h timescaledb -U user -d financial_db -f /sql/timescaledb_schema.sql
+        volumeMounts:
+        - name: sql-scripts
+          mountPath: /sql
+        env:
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: timescaledb-credentials
+              key: password
+      volumes:
+      - name: sql-scripts
+        configMap:
+          name: timescaledb-schema
+      restartPolicy: OnFailure

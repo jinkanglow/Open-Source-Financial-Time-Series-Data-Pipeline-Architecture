@@ -1,0 +1,93 @@
+# Marquez Deployment Configuration
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marquez
+  namespace: financial-timeseries
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marquez
+  template:
+    metadata:
+      labels:
+        app: marquez
+    spec:
+      containers:
+      - name: marquez-api
+        image: marquezproject/marquez:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: MARQUEZ_HOST
+          value: "0.0.0.0"
+        - name: MARQUEZ_PORT
+          value: "5000"
+        - name: POSTGRES_HOST
+          value: "timescaledb"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: "marquez"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: marquez-db-credentials
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: marquez-db-credentials
+              key: password
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+      - name: marquez-web
+        image: marquezproject/marquez-web:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: MARQUEZ_API
+          value: "http://localhost:5000"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: marquez
+  namespace: financial-timeseries
+spec:
+  selector:
+    app: marquez
+  ports:
+  - name: api
+    port: 5000
+    targetPort: 5000
+  - name: web
+    port: 3000
+    targetPort: 3000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: marquez-db-credentials
+  namespace: financial-timeseries
+type: Opaque
+stringData:
+  username: "marquez"
+  password: "marquez_password"

@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cost-budget-config
+  namespace: financial-timeseries
+data:
+  monthly_budget_usd: "3000"
+  alert_threshold_percent: "80"
+  cost_breakdown: |
+    {
+      "timescaledb": 500,
+      "s3_standard": 50,
+      "s3_glacier": 10,
+      "flink": 800,
+      "spark": 600,
+      "kafka": 400,
+      "gpu": 500,
+      "other": 540
+    }
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-credentials
+  namespace: financial-timeseries
+type: Opaque
+stringData:
+  access-key-id: "YOUR_ACCESS_KEY"
+  secret-access-key: "YOUR_SECRET_KEY"
+  bucket-name: "financial-timeseries-feature-store"
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cost-budget-checker
+  namespace: financial-timeseries
+spec:
+  schedule: "0 0 * * *"  # Daily at midnight
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cost-checker
+            image: financial-timeseries/cost-budget:latest
+            env:
+            - name: MONTHLY_BUDGET
+              valueFrom:
+                configMapKeyRef:
+                  name: cost-budget-config
+                  key: monthly_budget_usd
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: s3-credentials
+                  key: access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: s3-credentials
+                  key: secret-access-key
+            command: ["python", "/app/src/cost/cost_budget.py"]
+          restartPolicy: OnFailure
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cost-budget-sa
+  namespace: financial-timeseries
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cost-budget-role
+  namespace: financial-timeseries
+rules:
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cost-budget-rolebinding
+  namespace: financial-timeseries
+subjects:
+- kind: ServiceAccount
+  name: cost-budget-sa
+  namespace: financial-timeseries
+roleRef:
+  kind: Role
+  name: cost-budget-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triton-inference-server
+  namespace: financial-timeseries
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: triton-inference
+  template:
+    metadata:
+      labels:
+        app: triton-inference
+    spec:
+      containers:
+      - name: triton
+        image: nvcr.io/nvidia/tritonserver:23.10-py3
+        ports:
+        - containerPort: 8000  # HTTP
+        - containerPort: 8001  # gRPC
+        - containerPort: 8002  # Metrics
+        command:
+        - tritonserver
+        - --model-repository=/models
+        - --strict-model-config=false
+        - --log-verbose=1
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+            nvidia.com/gpu: 1
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+            nvidia.com/gpu: 1
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: triton-models-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: triton-inference-server
+  namespace: financial-timeseries
+spec:
+  selector:
+    app: triton-inference
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  - name: grpc
+    port: 8001
+    targetPort: 8001
+  - name: metrics
+    port: 8002
+    targetPort: 8002
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: triton-models-pvc
+  namespace: financial-timeseries
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triton-canary
+  namespace: financial-timeseries
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triton-canary
+  template:
+    metadata:
+      labels:
+        app: triton-canary
+    spec:
+      containers:
+      - name: triton
+        image: nvcr.io/nvidia/tritonserver:23.10-py3
+        ports:
+        - containerPort: 8000
+        command:
+        - tritonserver
+        - --model-repository=/models-canary
+        volumeMounts:
+        - name: models-canary
+          mountPath: /models-canary
+        resources:
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+            nvidia.com/gpu: 1
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+            nvidia.com/gpu: 1
+      volumes:
+      - name: models-canary
+        persistentVolumeClaim:
+          claimName: triton-models-canary-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: triton-models-canary-pvc
+  namespace: financial-timeseries
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi

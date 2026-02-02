@@ -1,0 +1,12 @@
+project: financial-timeseries-features
+registry: data/registry.db
+provider: local
+online_store:
+  type: redis
+  connection_string: localhost:6379
+offline_store:
+  type: spark
+  spark_conf:
+    spark.sql.adaptive.enabled: "true"
+    spark.sql.adaptive.coalescePartitions.enabled: "true"
+entity_key_serialization_version: 2

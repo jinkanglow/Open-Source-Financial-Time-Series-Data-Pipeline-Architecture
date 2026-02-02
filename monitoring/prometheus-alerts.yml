@@ -1,0 +1,72 @@
+# Prometheus Alert Rules
+
+groups:
+  - name: financial_timeseries_alerts
+    interval: 30s
+    rules:
+      # Feature SLA Violations
+      - alert: OHLCSLAViolation
+        expr: (time() - ohlc_1m_last_update) > 30
+        for: 1m
+        annotations:
+          summary: "OHLC SLA violation"
+          description: "OHLC data is older than 30 seconds"
+      
+      - alert: SMA20SLAViolation
+        expr: (time() - sma_20_last_update) > 120
+        for: 2m
+        annotations:
+          summary: "SMA_20 SLA violation"
+          description: "SMA_20 data is older than 2 minutes"
+      
+      - alert: VWAPSLAViolation
+        expr: (time() - vwap_5m_last_update) > 30
+        for: 1m
+        annotations:
+          summary: "VWAP_5m SLA violation"
+          description: "VWAP_5m data is older than 30 seconds"
+      
+      # Flink Job Health
+      - alert: FlinkJobDown
+        expr: up{job="flink"} == 0
+        for: 1m
+        annotations:
+          summary: "Flink job is down"
+      
+      - alert: FlinkHighLatency
+        expr: histogram_quantile(0.95, flink_job_latency_seconds_bucket) > 1
+        for: 5m
+        annotations:
+          summary: "Flink job latency too high"
+          description: "P95 latency exceeds 1 second"
+      
+      # Kafka Consumer Lag
+      - alert: KafkaHighConsumerLag
+        expr: kafka_consumer_lag_sum > 10000
+        for: 5m
+        annotations:
+          summary: "Kafka consumer lag is high"
+          description: "Consumer lag exceeds 10000 messages"
+      
+      # Cost Budget
+      - alert: CostBudgetExceeded
+        expr: current_month_cost > monthly_budget
+        for: 1h
+        annotations:
+          summary: "Monthly cost budget exceeded"
+          description: "Current month cost: {{ $value }}"
+      
+      # Model Performance
+      - alert: ModelHighLatency
+        expr: histogram_quantile(0.95, triton_inference_latency_seconds_bucket) > 0.15
+        for: 5m
+        annotations:
+          summary: "Model inference latency too high"
+          description: "P95 latency exceeds 150ms"
+      
+      - alert: CanaryRollbackRequired
+        expr: shadow_pnl_diff_percent > 10 OR shadow_pnl_diff_percent < -10
+        for: 5m
+        annotations:
+          summary: "Canary deployment rollback required"
+          description: "PnL difference: {{ $value }}%"

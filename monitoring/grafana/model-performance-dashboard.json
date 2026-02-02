@@ -1,0 +1,123 @@
+{
+  "dashboard": {
+    "title": "Model Performance & Canary Deployment",
+    "tags": ["ml", "triton", "canary"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Model Prediction Latency (P95)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, triton_inference_latency_seconds_bucket{model=\"regime_baseline\"})",
+            "legendFormat": "Baseline P95"
+          },
+          {
+            "expr": "histogram_quantile(0.95, triton_inference_latency_seconds_bucket{model=\"regime_canary_v2\"})",
+            "legendFormat": "Canary P95"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ms",
+            "label": "Latency"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Shadow PnL Difference",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "shadow_pnl_diff_percent",
+            "legendFormat": "PnL Diff (%)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Difference"
+          }
+        ],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {"value": -10, "color": "red"},
+            {"value": 10, "color": "green"}
+          ]
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Deployment Phase",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "canary_deployment_phase",
+            "legendFormat": "{{phase}}"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Traffic Split",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sum(rate(triton_requests_total{model=\"regime_baseline\"}[5m]))",
+            "legendFormat": "Baseline"
+          },
+          {
+            "expr": "sum(rate(triton_requests_total{model=\"regime_canary_v2\"}[5m]))",
+            "legendFormat": "Canary"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Model Prediction Distribution",
+        "type": "histogram",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, triton_inference_latency_seconds_bucket)",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, triton_inference_latency_seconds_bucket)",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, triton_inference_latency_seconds_bucket)",
+            "legendFormat": "P99"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 6,
+        "title": "Rollback Events",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "canary_rollback_events",
+            "format": "table"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      }
+    ],
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    }
+  }
+}

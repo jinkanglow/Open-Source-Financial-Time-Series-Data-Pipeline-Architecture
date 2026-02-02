@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feast-serving
+  namespace: financial-timeseries
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: feast-serving
+  template:
+    metadata:
+      labels:
+        app: feast-serving
+    spec:
+      containers:
+      - name: feast-serving
+        image: feastdev/feast-serving:latest
+        ports:
+        - containerPort: 6566
+        env:
+        - name: FEAST_USAGE
+          value: "false"
+        - name: FEAST_REPO_CONFIG
+          value: "/feast_repo/feature_store.yaml"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: REDIS_PORT
+          value: "6379"
+        volumeMounts:
+        - name: feast-repo
+          mountPath: /feast_repo
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+      volumes:
+      - name: feast-repo
+        configMap:
+          name: feast-repo-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: feast-serving
+  namespace: financial-timeseries
+spec:
+  selector:
+    app: feast-serving
+  ports:
+  - port: 6566
+    targetPort: 6566
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feast-repo-config
+  namespace: financial-timeseries
+data:
+  feature_store.yaml: |
+    project: financial-timeseries-features
+    registry: data/registry.db
+    provider: local
+    online_store:
+      type: redis
+      connection_string: redis:6379
+    offline_store:
+      type: spark
+  feature_definitions.py: |
+    # Feature definitions will be synced from Git

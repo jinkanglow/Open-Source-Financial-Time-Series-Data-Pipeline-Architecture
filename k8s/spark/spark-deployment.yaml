@@ -1,0 +1,94 @@
+apiVersion: "sparkoperator.k8s.io/v1beta2"
+kind: SparkApplication
+metadata:
+  name: spark-batch-features
+  namespace: financial-timeseries
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: "financial-timeseries/spark-job:latest"
+  imagePullPolicy: Always
+  mainApplicationFile: "local:///opt/spark/batch_feature_calculation.py"
+  sparkVersion: "3.4.0"
+  restartPolicy:
+    type: OnFailure
+    onFailureRetries: 3
+    onFailureRetryInterval: 10
+    onSubmissionFailureRetries: 5
+    onSubmissionFailureRetryInterval: 20
+  driver:
+    cores: 2
+    coreLimit: "2000m"
+    memory: "4g"
+    serviceAccount: spark-service-account
+    env:
+    - name: INPUT_PATH
+      value: "s3://feature-store/raw/market_data"
+    - name: OUTPUT_BASE
+      value: "s3://feature-store/processed"
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: s3-credentials
+          key: access-key-id
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: s3-credentials
+          key: secret-access-key
+  executor:
+    cores: 2
+    instances: 4
+    memory: "4g"
+    env:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: s3-credentials
+          key: access-key-id
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: s3-credentials
+          key: secret-access-key
+  sparkConf:
+    "spark.sql.extensions": "io.delta.sql.DeltaSparkSessionExtension"
+    "spark.sql.catalog.spark_catalog": "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+    "spark.sql.adaptive.enabled": "true"
+    "spark.sql.adaptive.coalescePartitions.enabled": "true"
+    "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spark-service-account
+  namespace: financial-timeseries
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spark-role
+  namespace: financial-timeseries
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["*", "get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-rolebinding
+  namespace: financial-timeseries
+subjects:
+- kind: ServiceAccount
+  name: spark-service-account
+roleRef:
+  kind: Role
+  name: spark-role
+  apiGroup: rbac.authorization.k8s.io

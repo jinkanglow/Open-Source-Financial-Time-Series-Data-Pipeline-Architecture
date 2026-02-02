@@ -1,0 +1,122 @@
+{
+  "dashboard": {
+    "title": "System Health Monitoring Dashboard",
+    "tags": ["health", "monitoring", "observability"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Overall System Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "pipeline_overall_status",
+            "legendFormat": "System Health"
+          }
+        ],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {"value": 0, "color": "red"},
+            {"value": 0.5, "color": "yellow"},
+            {"value": 1, "color": "green"}
+          ]
+        },
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Kafka Consumer Lag",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pipeline_kafka_consumer_lag",
+            "legendFormat": "Consumer Lag (records)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Records"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+      },
+      {
+        "id": 3,
+        "title": "TimescaleDB Continuous Aggregate Freshness",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pipeline_timescaledb_continuous_aggregate_lag_seconds",
+            "legendFormat": "Lag (seconds)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Lag"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+      },
+      {
+        "id": 4,
+        "title": "Model PnL Comparison",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pipeline_model_performance_pnl_diff_percent",
+            "legendFormat": "PnL Difference (%)"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Difference"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 5,
+        "title": "Data Quality Score by Feature",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pipeline_feast_features_data_quality_score",
+            "legendFormat": "{{feature}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percentunit",
+            "label": "Quality Score",
+            "min": 0,
+            "max": 1
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      },
+      {
+        "id": 6,
+        "title": "Component Health Status",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "pipeline_kafka_status",
+            "format": "table"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    }
+  }
+}
